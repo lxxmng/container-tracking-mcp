@@ -1,7 +1,7 @@
 {
   "name": "@trackingmcp/container-tracking-mcp",
   "mcpName": "io.github.lxxmng/container-tracking",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Container tracking MCP: vessel positions, demurrage risk, port congestion for Claude & ChatGPT.",
   "type": "module",
   "scripts": {

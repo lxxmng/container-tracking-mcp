@@ -44,12 +44,12 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 | Tool | Tokens | What it does |
 |------|--------|-------------|
-| `get_shipment_summary` | 15 | Portfolio overview: exceptions, arriving soon, demurrage risk |
-| `get_container_detail` | 50 | Full status: route, ETA, vessel, events, AI narrative |
-| `get_vessel_position` | 25 | Live AIS: lat/lng, speed, heading |
-| `get_demurrage_report` | 20 | Risk report: free days left, daily rates, projected cost |
-| `get_port_congestion` | 15 | Wait times at any port by UN/LOCODE |
-| `add_container` | 10 | Start tracking a container ID or B/L |
+| `getShipmentSummary` | 15 | Portfolio overview: exceptions, arriving soon, demurrage risk |
+| `getContainerDetail` | 50 | Full status: route, ETA, vessel, events, AI narrative |
+| `getVesselPosition` | 25 | Live AIS: lat/lng, speed, heading |
+| `getDemurrageReport` | 20 | Risk report: free days left, daily rates, projected cost |
+| `getPortCongestion` | 15 | Wait times at any port by UN/LOCODE |
+| `addContainer` | 10 | Start tracking a container ID or B/L |
 
 ## Token pricing
 

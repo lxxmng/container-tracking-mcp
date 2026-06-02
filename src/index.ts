@@ -79,11 +79,11 @@ const NO_KEY_ERROR = {
 }
 
 function buildServer(apiKey: string): McpServer {
-  const server = new McpServer({ name: 'container-tracking', version: '1.0.0' })
+  const server = new McpServer({ name: 'container-tracking', version: '1.1.0' })
 
   // 15 tokens — portfolio overview
   server.registerTool(
-    'get_shipment_summary',
+    'getShipmentSummary',
     {
       title: 'Get Shipment Summary',
       description: 'Overview of your entire container portfolio: total active, exceptions, arriving soon, demurrage risk. Use this first to identify which shipments need attention.',
@@ -120,7 +120,7 @@ function buildServer(apiKey: string): McpServer {
 
   // 50 tokens — full container status
   server.registerTool(
-    'get_container_detail',
+    'getContainerDetail',
     {
       title: 'Get Container Detail',
       description: 'Full status for one container: current location, route, ETA with confidence percentage, carrier, vessel name and IMO, complete event history, and AI-generated narrative summary.',
@@ -153,7 +153,7 @@ function buildServer(apiKey: string): McpServer {
 
   // 25 tokens — live AIS vessel position
   server.registerTool(
-    'get_vessel_position',
+    'getVesselPosition',
     {
       title: 'Get Vessel Position',
       description: 'Live AIS position for a vessel: latitude, longitude, speed over ground, heading, and navigational status. Use the IMO number from get_container_detail.',
@@ -182,7 +182,7 @@ function buildServer(apiKey: string): McpServer {
 
   // 20 tokens — demurrage risk report
   server.registerTool(
-    'get_demurrage_report',
+    'getDemurrageReport',
     {
       title: 'Get Demurrage Report',
       description: 'Demurrage and detention risk report: which containers are near or past their free days, applicable daily rates, and projected cost if not moved.',
@@ -218,7 +218,7 @@ function buildServer(apiKey: string): McpServer {
 
   // 15 tokens — port congestion
   server.registerTool(
-    'get_port_congestion',
+    'getPortCongestion',
     {
       title: 'Get Port Congestion',
       description: 'Current congestion level at one or more ports: average vessel wait time in hours, number of vessels at anchor, and congestion level (low/moderate/high/severe). Use UN/LOCODE identifiers.',
@@ -251,7 +251,7 @@ function buildServer(apiKey: string): McpServer {
 
   // 10 tokens — add container
   server.registerTool(
-    'add_container',
+    'addContainer',
     {
       title: 'Add Container',
       description: 'Start tracking a new container or bill of lading number. The first status update appears within 15 minutes. Optional tags help organise containers by client, project, or urgency.',
