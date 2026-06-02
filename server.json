@@ -1,31 +1,25 @@
 {
-  "$schema": "https://registry.modelcontextprotocol.io/schema/server.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lxxmng/container-tracking",
-  "version": "1.0.0",
-  "displayName": "Container Tracking MCP",
+  "title": "Container Tracking MCP",
   "description": "Container tracking MCP: vessel positions, demurrage risk, port congestion for Claude & ChatGPT.",
-  "homepage": "https://trackingmcp.com/mcp",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/lxxmng/container-tracking-mcp"
-  },
-  "license": "MIT",
-  "categories": ["logistics", "business", "data"],
-  "tags": ["container-tracking", "shipping", "ocean-freight", "dcsa", "demurrage", "vessel", "ais"],
-  "transport": [
-    { "type": "http", "url": "https://mcp.trackingmcp.com/mcp" },
-    { "type": "sse",  "url": "https://mcp.trackingmcp.com/sse" }
-  ],
-  "authentication": {
-    "type": "bearer",
-    "description": "TrackingMCP API key — get one free at https://trackingmcp.com/mcp"
-  },
-  "tools": [
-    { "name": "get_shipment_summary",  "description": "Portfolio overview: active containers, exceptions, arriving soon, demurrage risk" },
-    { "name": "get_container_detail",  "description": "Full status for one container: route, ETA, vessel, events, AI narrative" },
-    { "name": "get_vessel_position",   "description": "Live AIS position: lat/lng, speed, heading, nav status" },
-    { "name": "get_demurrage_report",  "description": "Demurrage risk: containers past free days, daily rates, projected cost" },
-    { "name": "get_port_congestion",   "description": "Port wait times and congestion level by UN/LOCODE" },
-    { "name": "add_container",         "description": "Start tracking a new container ID or B/L number" }
+  "version": "1.0.0",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.trackingmcp.com/mcp",
+      "headers": [
+        {
+          "name": "Authorization",
+          "description": "Bearer YOUR_API_KEY — get one free at trackingmcp.com/mcp",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    },
+    {
+      "type": "sse",
+      "url": "https://mcp.trackingmcp.com/sse"
+    }
   ]
 }

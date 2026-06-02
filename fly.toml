@@ -1,0 +1,22 @@
+app = "trackingmcp-mcp"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 3002
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[env]
+  NODE_ENV = "production"
+  MCP_PORT = "3002"
+  API_BASE_URL = "https://api.trackingmcp.com/v1"
