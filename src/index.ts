@@ -57,6 +57,8 @@ async function callApi<T>(
   }
 }
 
+const NO_KEY_ERROR = { content: [{ type: 'text' as const, text: 'Error: Missing API key. Add Authorization: Bearer YOUR_API_KEY — get one free at trackingmcp.com/mcp' }], isError: true }
+
 function buildServer(apiKey: string): McpServer {
   const server = new McpServer({ name: 'container-tracking', version: '1.0.0' })
 
@@ -72,6 +74,7 @@ function buildServer(apiKey: string): McpServer {
         .describe('Focus on a subset: all (default), exceptions, arriving_soon, demurrage_risk'),
     },
     async ({ filter }) => {
+      if (!apiKey) return NO_KEY_ERROR
       const params = filter && filter !== 'all' ? `?filter=${filter}` : ''
       const result = await callApi(apiKey, `/containers/summary${params}`)
       if (!result.ok) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true }
@@ -89,6 +92,7 @@ function buildServer(apiKey: string): McpServer {
         .describe('Container number (e.g. MSCU7349821) or B/L number (e.g. MAEU123456789)'),
     },
     async ({ container_id }) => {
+      if (!apiKey) return NO_KEY_ERROR
       const encoded = encodeURIComponent(container_id.toUpperCase().trim())
       const result = await callApi(apiKey, `/containers/lookup/${encoded}`)
       if (!result.ok) return { content: [{ type: 'text', text: `Not found: ${result.error}` }], isError: true }
@@ -104,6 +108,7 @@ function buildServer(apiKey: string): McpServer {
       imo: z.string().describe('IMO number (e.g. 9463297) — found in get_container_detail response'),
     },
     async ({ imo }) => {
+      if (!apiKey) return NO_KEY_ERROR
       const result = await callApi(apiKey, `/vessels/${imo}/position`)
       if (!result.ok) return { content: [{ type: 'text', text: `Position unavailable: ${result.error}` }], isError: true }
       return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
@@ -121,6 +126,7 @@ function buildServer(apiKey: string): McpServer {
         .describe('Optional: scope to one container ID. Omit for full portfolio report.'),
     },
     async ({ container_id }) => {
+      if (!apiKey) return NO_KEY_ERROR
       const path = container_id
         ? `/containers/${encodeURIComponent(container_id)}/demurrage`
         : '/containers/demurrage'
@@ -141,6 +147,7 @@ function buildServer(apiKey: string): McpServer {
         .describe('UN/LOCODE codes e.g. ["NLRTM", "GBFXT", "DEHAM", "CNSHA"]'),
     },
     async ({ port_codes }) => {
+      if (!apiKey) return NO_KEY_ERROR
       const query = port_codes.map((p) => `codes=${p}`).join('&')
       const result = await callApi(apiKey, `/ports/congestion?${query}`)
       if (!result.ok) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true }
@@ -160,6 +167,7 @@ function buildServer(apiKey: string): McpServer {
       tags: z.array(z.string()).optional().describe('Optional labels e.g. ["client-acme", "urgent"]'),
     },
     async ({ identifier, identifier_type, tags }) => {
+      if (!apiKey) return NO_KEY_ERROR
       const result = await callApi(apiKey, '/containers', {
         method: 'POST',
         body: { identifier: identifier.toUpperCase().trim(), identifier_type, tags: tags ?? [] },
@@ -183,17 +191,15 @@ Bun.serve({
     if (pathname === '/health')
       return Response.json({ ok: true, service: 'container-tracking-mcp', version: '1.0.0' })
 
-    const apiKey = extractApiKey(req)
-    if (!apiKey && (pathname === '/mcp' || pathname === '/sse'))
-      return Response.json({ error: 'Missing Authorization: Bearer YOUR_API_KEY' }, { status: 401 })
+    const apiKey = extractApiKey(req) ?? ''
 
-    if (pathname === '/mcp' && apiKey) {
+    if (pathname === '/mcp') {
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() })
       await buildServer(apiKey).connect(transport)
       return transport.handleRequest(req)
     }
 
-    if (pathname === '/sse' && apiKey) {
+    if (pathname === '/sse') {
       const transport = new SSEServerTransport('/messages', {} as never)
       const id = crypto.randomUUID()
       sseSessions.set(id, transport)
