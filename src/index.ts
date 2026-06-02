@@ -82,117 +82,202 @@ function buildServer(apiKey: string): McpServer {
   const server = new McpServer({ name: 'container-tracking', version: '1.0.0' })
 
   // 15 tokens — portfolio overview
-  server.tool(
+  server.registerTool(
     'get_shipment_summary',
-    'Overview of your entire container portfolio: total active, exceptions, arriving soon, demurrage risk.',
     {
-      filter: z
-        .enum(['all', 'exceptions', 'arriving_soon', 'demurrage_risk'])
-        .optional()
-        .default('all')
-        .describe('Focus on a subset: all (default), exceptions, arriving_soon, demurrage_risk'),
+      title: 'Get Shipment Summary',
+      description: 'Overview of your entire container portfolio: total active, exceptions, arriving soon, demurrage risk. Use this first to identify which shipments need attention.',
+      inputSchema: {
+        filter: z
+          .enum(['all', 'exceptions', 'arriving_soon', 'demurrage_risk'])
+          .optional()
+          .default('all')
+          .describe('Focus on a subset: all (default), exceptions, arriving_soon, demurrage_risk'),
+      },
+      outputSchema: {
+        total: z.number().describe('Total number of active containers'),
+        exceptions: z.number().describe('Containers with issues requiring attention'),
+        arriving_soon: z.number().describe('Containers arriving within 48 hours'),
+        demurrage_risk: z.number().describe('Containers at risk of demurrage charges'),
+        containers: z.array(z.object({
+          id: z.string(),
+          status: z.string(),
+          eta: z.string().optional(),
+          origin: z.string().optional(),
+          destination: z.string().optional(),
+        })).optional(),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ filter }) => {
-      if (!apiKey) return NO_KEY_ERROR
+      if (!apiKey) return { content: [{ type: 'text', text: NO_KEY_ERROR.content[0].text }], isError: true }
       const params = filter && filter !== 'all' ? `?filter=${filter}` : ''
-      const result = await callApi(apiKey, `/containers/summary${params}`)
+      const result = await callApi<Record<string, unknown>>(apiKey, `/containers/summary${params}`)
       if (!result.ok) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true }
-      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
+      return { structuredContent: result.data as never, content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
     }
   )
 
   // 50 tokens — full container status
-  server.tool(
+  server.registerTool(
     'get_container_detail',
-    'Full status for one container: route, ETA with confidence %, carrier, vessel, event history, AI narrative.',
     {
-      container_id: z
-        .string()
-        .describe('Container number (e.g. MSCU7349821) or B/L number (e.g. MAEU123456789)'),
+      title: 'Get Container Detail',
+      description: 'Full status for one container: current location, route, ETA with confidence percentage, carrier, vessel name and IMO, complete event history, and AI-generated narrative summary.',
+      inputSchema: {
+        container_id: z
+          .string()
+          .describe('Container number (e.g. MSCU7349821) or B/L number (e.g. MAEU123456789)'),
+      },
+      outputSchema: {
+        container_number: z.string().describe('Standardised container number'),
+        status: z.string().describe('Current status: in_transit, at_origin_port, discharged, delivered, etc.'),
+        eta: z.string().optional().describe('Estimated arrival at destination (ISO 8601)'),
+        eta_confidence: z.number().optional().describe('ETA confidence score 0-100'),
+        vessel: z.object({ name: z.string(), imo: z.string().optional() }).optional(),
+        origin: z.object({ name: z.string(), unlocode: z.string().optional() }).optional(),
+        destination: z.object({ name: z.string(), unlocode: z.string().optional() }).optional(),
+        events: z.array(z.object({ type: z.string(), date: z.string(), description: z.string() })).optional(),
+        narrative: z.string().optional().describe('AI-generated plain-English shipment narrative'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ container_id }) => {
-      if (!apiKey) return NO_KEY_ERROR
+      if (!apiKey) return { content: [{ type: 'text', text: NO_KEY_ERROR.content[0].text }], isError: true }
       const encoded = encodeURIComponent(container_id.toUpperCase().trim())
-      const result = await callApi(apiKey, `/containers/lookup/${encoded}`)
+      const result = await callApi<Record<string, unknown>>(apiKey, `/containers/lookup/${encoded}`)
       if (!result.ok) return { content: [{ type: 'text', text: `Not found: ${result.error}` }], isError: true }
-      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
+      return { structuredContent: result.data as never, content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
     }
   )
 
   // 25 tokens — live AIS vessel position
-  server.tool(
+  server.registerTool(
     'get_vessel_position',
-    'Live AIS position for a vessel: lat/lng, speed, heading, nav status. Use the IMO from get_container_detail.',
     {
-      imo: z.string().describe('IMO number (e.g. 9463297) — found in get_container_detail response'),
+      title: 'Get Vessel Position',
+      description: 'Live AIS position for a vessel: latitude, longitude, speed over ground, heading, and navigational status. Use the IMO number from get_container_detail.',
+      inputSchema: {
+        imo: z.string().describe('IMO number (e.g. 9463297) — found in get_container_detail response'),
+      },
+      outputSchema: {
+        imo: z.string(),
+        vessel_name: z.string().optional(),
+        lat: z.number().describe('Latitude in decimal degrees'),
+        lng: z.number().describe('Longitude in decimal degrees'),
+        speed_knots: z.number().optional().describe('Speed over ground in knots'),
+        heading_deg: z.number().optional().describe('True heading in degrees'),
+        nav_status: z.string().optional().describe('AIS navigational status'),
+        updated_at: z.string().optional().describe('Timestamp of last AIS position fix'),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     async ({ imo }) => {
-      if (!apiKey) return NO_KEY_ERROR
-      const result = await callApi(apiKey, `/vessels/${imo}/position`)
+      if (!apiKey) return { content: [{ type: 'text', text: NO_KEY_ERROR.content[0].text }], isError: true }
+      const result = await callApi<Record<string, unknown>>(apiKey, `/vessels/${imo}/position`)
       if (!result.ok) return { content: [{ type: 'text', text: `Position unavailable: ${result.error}` }], isError: true }
-      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
+      return { structuredContent: result.data as never, content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
     }
   )
 
   // 20 tokens — demurrage risk report
-  server.tool(
+  server.registerTool(
     'get_demurrage_report',
-    'Demurrage and detention risk: which containers are near or past free days, daily rates, projected costs.',
     {
-      container_id: z
-        .string()
-        .optional()
-        .describe('Optional: scope to one container ID. Omit for full portfolio report.'),
+      title: 'Get Demurrage Report',
+      description: 'Demurrage and detention risk report: which containers are near or past their free days, applicable daily rates, and projected cost if not moved.',
+      inputSchema: {
+        container_id: z
+          .string()
+          .optional()
+          .describe('Optional: scope report to one container ID. Omit for full portfolio report.'),
+      },
+      outputSchema: {
+        total_at_risk: z.number().optional().describe('Number of containers at demurrage risk'),
+        total_projected_cost: z.number().optional().describe('Total projected demurrage cost in USD'),
+        containers: z.array(z.object({
+          container_id: z.string(),
+          free_days_remaining: z.number(),
+          daily_rate_usd: z.number(),
+          projected_cost_usd: z.number(),
+          port: z.string().optional(),
+        })).optional(),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
     async ({ container_id }) => {
-      if (!apiKey) return NO_KEY_ERROR
+      if (!apiKey) return { content: [{ type: 'text', text: NO_KEY_ERROR.content[0].text }], isError: true }
       const path = container_id
         ? `/containers/${encodeURIComponent(container_id)}/demurrage`
         : '/containers/demurrage'
-      const result = await callApi(apiKey, path)
+      const result = await callApi<Record<string, unknown>>(apiKey, path)
       if (!result.ok) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true }
-      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
+      return { structuredContent: result.data as never, content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
     }
   )
 
   // 15 tokens — port congestion
-  server.tool(
+  server.registerTool(
     'get_port_congestion',
-    'Congestion at any port: avg wait hours, vessels at anchor, level (low/moderate/high/severe). Use UN/LOCODE.',
     {
-      port_codes: z
-        .array(z.string().toUpperCase())
-        .min(1)
-        .describe('UN/LOCODE codes e.g. ["NLRTM", "GBFXT", "DEHAM", "CNSHA"]'),
+      title: 'Get Port Congestion',
+      description: 'Current congestion level at one or more ports: average vessel wait time in hours, number of vessels at anchor, and congestion level (low/moderate/high/severe). Use UN/LOCODE identifiers.',
+      inputSchema: {
+        port_codes: z
+          .array(z.string().toUpperCase())
+          .min(1)
+          .describe('UN/LOCODE codes e.g. ["NLRTM", "GBFXT", "DEHAM", "CNSHA"]'),
+      },
+      outputSchema: {
+        ports: z.array(z.object({
+          unlocode: z.string(),
+          name: z.string().optional(),
+          congestion_level: z.enum(['low', 'moderate', 'high', 'severe']),
+          avg_wait_hours: z.number().optional(),
+          vessels_at_anchor: z.number().optional(),
+          updated_at: z.string().optional(),
+        })),
+      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     },
     async ({ port_codes }) => {
-      if (!apiKey) return NO_KEY_ERROR
+      if (!apiKey) return { content: [{ type: 'text', text: NO_KEY_ERROR.content[0].text }], isError: true }
       const query = port_codes.map((p) => `codes=${p}`).join('&')
-      const result = await callApi(apiKey, `/ports/congestion?${query}`)
+      const result = await callApi<Record<string, unknown>>(apiKey, `/ports/congestion?${query}`)
       if (!result.ok) return { content: [{ type: 'text', text: `Error: ${result.error}` }], isError: true }
-      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
+      return { structuredContent: result.data as never, content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
     }
   )
 
   // 10 tokens — add container
-  server.tool(
+  server.registerTool(
     'add_container',
-    'Start tracking a new container or B/L number. First status update within 15 minutes.',
     {
-      identifier: z.string().describe('Container number or B/L number to start tracking'),
-      identifier_type: z
-        .enum(['container_id', 'bill_of_lading'])
-        .describe('Type of the identifier'),
-      tags: z.array(z.string()).optional().describe('Optional labels e.g. ["client-acme", "urgent"]'),
+      title: 'Add Container',
+      description: 'Start tracking a new container or bill of lading number. The first status update appears within 15 minutes. Optional tags help organise containers by client, project, or urgency.',
+      inputSchema: {
+        identifier: z.string().describe('Container number (e.g. MSCU7349821) or B/L number (e.g. MAEU123456789)'),
+        identifier_type: z
+          .enum(['container_id', 'bill_of_lading'])
+          .describe('Type of identifier: container_id or bill_of_lading'),
+        tags: z.array(z.string()).optional().describe('Optional labels e.g. ["client-acme", "urgent", "Q1-shipment"]'),
+      },
+      outputSchema: {
+        id: z.string().describe('Internal container UUID'),
+        container_number: z.string().optional(),
+        status: z.string().describe('Initial tracking status'),
+        created_at: z.string(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
     async ({ identifier, identifier_type, tags }) => {
-      if (!apiKey) return NO_KEY_ERROR
-      const result = await callApi(apiKey, '/containers', {
+      if (!apiKey) return { content: [{ type: 'text', text: NO_KEY_ERROR.content[0].text }], isError: true }
+      const result = await callApi<Record<string, unknown>>(apiKey, '/containers', {
         method: 'POST',
         body: { identifier: identifier.toUpperCase().trim(), identifier_type, tags: tags ?? [] },
       })
       if (!result.ok) return { content: [{ type: 'text', text: `Could not add: ${result.error}` }], isError: true }
-      return { content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
+      return { structuredContent: result.data as never, content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }] }
     }
   )
 
