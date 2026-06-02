@@ -1,5 +1,7 @@
 # Container Tracking MCP
 
+[![smithery badge](https://smithery.ai/badge/lxxmng/container-tracking)](https://smithery.ai/servers/lxxmng/container-tracking)
+
 Track ocean freight containers directly from Claude, ChatGPT, Cursor, or any MCP-compatible AI assistant.
 
 Ask your AI: *"Where is container MSCU7349821?"* or *"Which shipments have demurrage risk this week?"*
