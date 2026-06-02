@@ -16,6 +16,7 @@
  * Get a free API key → https://trackingmcp.com/mcp
  */
 
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js'
@@ -24,10 +25,25 @@ import { z } from 'zod'
 const API_BASE = process.env.API_BASE_URL ?? 'https://api.trackingmcp.com/v1'
 const PORT = Number.parseInt(process.env.MCP_PORT ?? '3002')
 
-function extractApiKey(req: Request): string | null {
-  const auth = req.headers.get('Authorization') ?? req.headers.get('authorization')
-  if (!auth) return null
-  return auth.match(/^Bearer\s+(.+)$/i)?.[1] ?? null
+function extractApiKey(req: IncomingMessage): string {
+  const auth = req.headers['authorization'] ?? ''
+  return (auth as string).match(/^Bearer\s+(.+)$/i)?.[1] ?? ''
+}
+
+async function readBody(req: IncomingMessage): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    req.on('data', (chunk) => chunks.push(chunk))
+    req.on('end', () => {
+      try {
+        const text = Buffer.concat(chunks).toString()
+        resolve(text ? JSON.parse(text) : undefined)
+      } catch {
+        resolve(undefined)
+      }
+    })
+    req.on('error', reject)
+  })
 }
 
 async function callApi<T>(
@@ -57,7 +73,10 @@ async function callApi<T>(
   }
 }
 
-const NO_KEY_ERROR = { content: [{ type: 'text' as const, text: 'Error: Missing API key. Add Authorization: Bearer YOUR_API_KEY — get one free at trackingmcp.com/mcp' }], isError: true }
+const NO_KEY_ERROR = {
+  content: [{ type: 'text' as const, text: 'Error: Missing API key. Set Authorization: Bearer YOUR_API_KEY — get one free at trackingmcp.com/mcp' }],
+  isError: true,
+}
 
 function buildServer(apiKey: string): McpServer {
   const server = new McpServer({ name: 'container-tracking', version: '1.0.0' })
@@ -180,49 +199,64 @@ function buildServer(apiKey: string): McpServer {
   return server
 }
 
-// HTTP server — dual transport
+// SSE session store
 const sseSessions = new Map<string, SSEServerTransport>()
 
-Bun.serve({
-  port: PORT,
-  async fetch(req: Request) {
-    const { pathname } = new URL(req.url)
+const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  const url = new URL(req.url ?? '/', `http://localhost:${PORT}`)
+  const { pathname } = url
 
-    if (pathname === '/health')
-      return Response.json({ ok: true, service: 'container-tracking-mcp', version: '1.0.0' })
+  // Health check — no auth required
+  if (pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ ok: true, service: 'container-tracking-mcp', version: '1.0.0' }))
+    return
+  }
 
-    const apiKey = extractApiKey(req) ?? ''
+  const apiKey = extractApiKey(req)
 
-    if (pathname === '/mcp') {
-      const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() })
-      await buildServer(apiKey).connect(transport)
-      return transport.handleRequest(req)
+  // Streamable HTTP (MCP 2024-11-05+)
+  if (pathname === '/mcp') {
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => crypto.randomUUID(),
+    })
+    const body = await readBody(req)
+    await buildServer(apiKey).connect(transport)
+    await transport.handleRequest(req, res, body)
+    return
+  }
+
+  // SSE transport (legacy clients)
+  if (pathname === '/sse' && req.method === 'GET') {
+    const transport = new SSEServerTransport('/messages', res)
+    const id = crypto.randomUUID()
+    sseSessions.set(id, transport)
+    await buildServer(apiKey).connect(transport)
+    await transport.start()
+    return
+  }
+
+  if (pathname === '/messages' && req.method === 'POST') {
+    const sessionId = url.searchParams.get('sessionId')
+    const transport = sessionId ? sseSessions.get(sessionId) : null
+    if (!transport) {
+      res.writeHead(404, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Session not found' }))
+      return
     }
+    const body = await readBody(req)
+    await transport.handlePostMessage(req, res, body)
+    return
+  }
 
-    if (pathname === '/sse') {
-      const transport = new SSEServerTransport('/messages', {} as never)
-      const id = crypto.randomUUID()
-      sseSessions.set(id, transport)
-      await buildServer(apiKey).connect(transport)
-      return new Response((transport as any).sseStream, {
-        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Session-Id': id },
-      })
-    }
-
-    if (pathname === '/messages' && req.method === 'POST') {
-      const id = new URL(req.url).searchParams.get('sessionId')
-      const t = id ? sseSessions.get(id) : null
-      if (!t) return Response.json({ error: 'Session not found' }, { status: 404 })
-      await t.handlePostMessage(req)
-      return new Response(null, { status: 204 })
-    }
-
-    return Response.json({
-      service: 'Container Tracking MCP',
-      docs: 'https://trackingmcp.com/mcp',
-      endpoints: { mcp: '/mcp', sse: '/sse', health: '/health' },
-    }, { status: 404 })
-  },
+  res.writeHead(200, { 'Content-Type': 'application/json' })
+  res.end(JSON.stringify({
+    service: 'Container Tracking MCP',
+    docs: 'https://trackingmcp.com/mcp',
+    endpoints: { mcp: '/mcp', sse: '/sse', health: '/health' },
+  }))
 })
 
-console.log(`Container Tracking MCP server on :${PORT}`)
+httpServer.listen(PORT, () => {
+  console.log(`Container Tracking MCP server on :${PORT}`)
+})
