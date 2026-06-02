@@ -199,7 +199,8 @@ function buildServer(apiKey: string): McpServer {
   return server
 }
 
-// SSE session store
+// Session stores — keyed by Mcp-Session-Id
+const mcpSessions = new Map<string, StreamableHTTPServerTransport>()
 const sseSessions = new Map<string, SSEServerTransport>()
 
 const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -215,12 +216,27 @@ const httpServer = createServer(async (req: IncomingMessage, res: ServerResponse
 
   const apiKey = extractApiKey(req)
 
-  // Streamable HTTP (MCP 2024-11-05+)
+  // Streamable HTTP (MCP 2024-11-05+) — session-aware
   if (pathname === '/mcp') {
+    const body = await readBody(req)
+    const sessionId = req.headers['mcp-session-id'] as string | undefined
+
+    // Reuse existing session if present
+    if (sessionId && mcpSessions.has(sessionId)) {
+      const transport = mcpSessions.get(sessionId)!
+      await transport.handleRequest(req, res, body)
+      return
+    }
+
+    // New session — create transport + server
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => crypto.randomUUID(),
+      onsessioninitialized: (id) => {
+        mcpSessions.set(id, transport)
+        // Clean up session after 30 minutes of inactivity
+        setTimeout(() => mcpSessions.delete(id), 30 * 60 * 1000)
+      },
     })
-    const body = await readBody(req)
     await buildServer(apiKey).connect(transport)
     await transport.handleRequest(req, res, body)
     return
