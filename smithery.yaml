@@ -9,6 +9,16 @@ configSchema:
       type: string
       title: API Key
       description: Your TrackingMCP API key. Get one free at https://trackingmcp.com/mcp
+    defaultFilter:
+      type: string
+      title: Default shipment filter
+      description: "Optional: default filter for get_shipment_summary. One of: all, exceptions, arriving_soon, demurrage_risk. Defaults to 'all'."
+      enum:
+        - all
+        - exceptions
+        - arriving_soon
+        - demurrage_risk
+      default: all
   required:
     - apiKey
 
