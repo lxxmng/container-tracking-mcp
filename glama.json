@@ -1,0 +1,9 @@
+{
+  "$schema": "https://glama.ai/mcp/schemas/server.json",
+  "maintainers": ["lxxmng"],
+  "name": "Container Tracking MCP",
+  "description": "Real-time ocean freight container tracking for Claude, ChatGPT, and any MCP-compatible AI. Track containers, monitor demurrage risk, check vessel positions and port congestion.",
+  "repository": "https://github.com/lxxmng/container-tracking-mcp",
+  "homepage": "https://trackingmcp.com/mcp",
+  "categories": ["logistics", "shipping", "supply-chain", "business"]
+}

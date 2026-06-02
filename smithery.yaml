@@ -1,0 +1,24 @@
+startCommand:
+  type: http
+  url: https://mcp.trackingmcp.com/mcp
+
+configSchema:
+  type: object
+  properties:
+    apiKey:
+      type: string
+      title: API Key
+      description: Your TrackingMCP API key. Get one free at https://trackingmcp.com/mcp
+  required:
+    - apiKey
+
+displayName: Container Tracking MCP
+description: >
+  Real-time ocean freight tracking for Claude, ChatGPT, and any MCP-compatible AI.
+  Track containers, check vessel positions, monitor demurrage risk, and get AI shipment narratives.
+iconUrl: https://trackingmcp.com/logo-signal.png
+categories:
+  - logistics
+  - shipping
+  - supply-chain
+  - business
