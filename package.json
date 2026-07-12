@@ -1,17 +1,28 @@
 {
-  "name": "@trackingmcp/container-tracking-mcp",
+  "name": "container-tracking-mcp",
   "mcpName": "io.github.lxxmng/container-tracking",
   "version": "1.1.0",
   "description": "Container tracking MCP: vessel positions, demurrage risk, port congestion for Claude & ChatGPT.",
   "type": "module",
   "scripts": {
     "start": "bun src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target node"
+    "build": "bun build src/index.ts --outdir dist --target node --banner \"#!/usr/bin/env node\""
   },
   "keywords": [
-    "mcp", "model-context-protocol", "container-tracking", "shipping",
-    "ocean-freight", "logistics", "supply-chain", "dcsa", "demurrage",
-    "ais", "vessel-tracking", "claude", "chatgpt", "llm"
+    "mcp",
+    "model-context-protocol",
+    "container-tracking",
+    "shipping",
+    "ocean-freight",
+    "logistics",
+    "supply-chain",
+    "dcsa",
+    "demurrage",
+    "ais",
+    "vessel-tracking",
+    "claude",
+    "chatgpt",
+    "llm"
   ],
   "author": "TrackingMCP <hello@trackingmcp.com>",
   "license": "MIT",
@@ -23,5 +34,17 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.24.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "dist/index.js",
+  "bin": {
+    "container-tracking-mcp": "dist/index.js"
   }
 }
