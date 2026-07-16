@@ -2,24 +2,32 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.lxxmng/container-tracking",
   "title": "Container Tracking MCP",
-  "description": "Container tracking MCP: vessel positions, demurrage risk, port congestion for Claude & ChatGPT.",
-  "version": "1.1.0",
+  "description": "DCSA container tracking across 228 ocean carriers — live vessel positions, ETAs, and demurrage alerts.",
+  "version": "1.3.0",
+  "websiteUrl": "https://trackingmcp.com",
+  "repository": {
+    "url": "https://github.com/lxxmng/container-tracking-mcp",
+    "source": "github"
+  },
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://mcp.trackingmcp.com/mcp",
-      "headers": [
-        {
-          "name": "Authorization",
-          "description": "Bearer YOUR_API_KEY — get one free at trackingmcp.com/mcp",
-          "isRequired": true,
-          "isSecret": true
-        }
-      ]
-    },
-    {
-      "type": "sse",
-      "url": "https://mcp.trackingmcp.com/sse"
+      "url": "https://mcp.trackingmcp.com/mcp"
     }
-  ]
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "categories": ["logistics", "business", "data"],
+      "tags": [
+        "container-tracking",
+        "shipping",
+        "ocean-freight",
+        "dcsa",
+        "demurrage",
+        "vessel-position",
+        "ais",
+        "supply-chain"
+      ]
+    }
+  }
 }
