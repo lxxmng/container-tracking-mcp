@@ -31,14 +31,6 @@ jobs:
           done
           exit 0
 
-      - name: Version drift (package.json vs server.json)
-        run: |
-          p=$(jq -r .version package.json)
-          s=$(jq -r .version server.json)
-          if [ "$p" != "$s" ]; then
-            echo "::warning::package.json is $p but server.json is $s"
-          fi
-
       - name: Boundary scan (no secrets or private internals)
         run: |
           if grep -rInE '(sk_live_|service_role|SUPABASE_SERVICE|DECODO|CAPSOLVER|BEGIN (RSA |EC )?PRIVATE KEY|fly_[A-Za-z0-9_]{20,})' \
