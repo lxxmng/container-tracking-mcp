@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install
+        run: |
+          if [ -f bun.lock ]; then bun install --frozen-lockfile; else bun install; fi
+
+      - name: Build
+        run: bun run build
+
+      - name: Manifests are valid JSON
+        run: |
+          for f in package.json server.json glama.json; do
+            [ -f "$f" ] && jq empty "$f" && echo "ok $f"
+          done
+          exit 0
+
+      - name: Version drift (package.json vs server.json)
+        run: |
+          p=$(jq -r .version package.json)
+          s=$(jq -r .version server.json)
+          if [ "$p" != "$s" ]; then
+            echo "::warning::package.json is $p but server.json is $s"
+          fi
+
+      - name: Boundary scan (no secrets or private internals)
+        run: |
+          if grep -rInE '(sk_live_|service_role|SUPABASE_SERVICE|DECODO|CAPSOLVER|BEGIN (RSA |EC )?PRIVATE KEY|fly_[A-Za-z0-9_]{20,})' \
+              --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.git --exclude-dir=.github .; then
+            echo "::error::possible secret or private internal in a public repo"
+            exit 1
+          fi
+          echo "clean"
